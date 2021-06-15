@@ -1,0 +1,49 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.28307.572
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DllInjection", "DllInjection\DllInjection.csproj", "{3D7E1433-F81A-428A-934F-7CC7FCF1149D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InjectorLauncher", "InjectorLauncher\InjectorLauncher.csproj", "{28A974E4-EF48-433B-AFE7-3D2B4DE11D09}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		DLL|Any CPU = DLL|Any CPU
+		DLL|x64 = DLL|x64
+		DLL|x86 = DLL|x86
+		Executeable|Any CPU = Executeable|Any CPU
+		Executeable|x64 = Executeable|x64
+		Executeable|x86 = Executeable|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{3D7E1433-F81A-428A-934F-7CC7FCF1149D}.DLL|Any CPU.ActiveCfg = DLL|Any CPU
+		{3D7E1433-F81A-428A-934F-7CC7FCF1149D}.DLL|Any CPU.Build.0 = DLL|Any CPU
+		{3D7E1433-F81A-428A-934F-7CC7FCF1149D}.DLL|x64.ActiveCfg = DLL|x64
+		{3D7E1433-F81A-428A-934F-7CC7FCF1149D}.DLL|x64.Build.0 = DLL|x64
+		{3D7E1433-F81A-428A-934F-7CC7FCF1149D}.DLL|x86.ActiveCfg = DLL|Any CPU
+		{3D7E1433-F81A-428A-934F-7CC7FCF1149D}.DLL|x86.Build.0 = DLL|Any CPU
+		{3D7E1433-F81A-428A-934F-7CC7FCF1149D}.Executeable|Any CPU.ActiveCfg = Executeable|Any CPU
+		{3D7E1433-F81A-428A-934F-7CC7FCF1149D}.Executeable|Any CPU.Build.0 = Executeable|Any CPU
+		{3D7E1433-F81A-428A-934F-7CC7FCF1149D}.Executeable|x64.ActiveCfg = DLL|x64
+		{3D7E1433-F81A-428A-934F-7CC7FCF1149D}.Executeable|x64.Build.0 = DLL|x64
+		{3D7E1433-F81A-428A-934F-7CC7FCF1149D}.Executeable|x86.ActiveCfg = DLL|Any CPU
+		{3D7E1433-F81A-428A-934F-7CC7FCF1149D}.Executeable|x86.Build.0 = DLL|Any CPU
+		{28A974E4-EF48-433B-AFE7-3D2B4DE11D09}.DLL|Any CPU.ActiveCfg = Executeable|Any CPU
+		{28A974E4-EF48-433B-AFE7-3D2B4DE11D09}.DLL|Any CPU.Build.0 = Executeable|Any CPU
+		{28A974E4-EF48-433B-AFE7-3D2B4DE11D09}.DLL|x64.ActiveCfg = Executeable|Any CPU
+		{28A974E4-EF48-433B-AFE7-3D2B4DE11D09}.DLL|x86.ActiveCfg = Executeable|Any CPU
+		{28A974E4-EF48-433B-AFE7-3D2B4DE11D09}.Executeable|Any CPU.ActiveCfg = Executeable|Any CPU
+		{28A974E4-EF48-433B-AFE7-3D2B4DE11D09}.Executeable|Any CPU.Build.0 = Executeable|Any CPU
+		{28A974E4-EF48-433B-AFE7-3D2B4DE11D09}.Executeable|x64.ActiveCfg = Executeable|Any CPU
+		{28A974E4-EF48-433B-AFE7-3D2B4DE11D09}.Executeable|x64.Build.0 = Executeable|Any CPU
+		{28A974E4-EF48-433B-AFE7-3D2B4DE11D09}.Executeable|x86.ActiveCfg = Executeable|Any CPU
+		{28A974E4-EF48-433B-AFE7-3D2B4DE11D09}.Executeable|x86.Build.0 = Executeable|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {AA0733CE-A971-4AAA-BFF7-85CAB09F1BA3}
+	EndGlobalSection
+EndGlobal
