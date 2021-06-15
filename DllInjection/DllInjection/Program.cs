@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.IO;
@@ -118,194 +118,150 @@ namespace DllInjection
         [return: MarshalAs(UnmanagedType.Bool)]
         static extern bool CloseHandle(IntPtr hObject);
 
+        static public void inject(String processName, String DllPath, bool silent)
+        {
+            IntPtr Size = (IntPtr) DllPath.Length;
+
+            // Make sure file exist
+            if (!File.Exists(DllPath))
+            {
+                if (!silent) Console.WriteLine("Cannot find dll at specified path");
+                return;
+            }
+            else
+            {
+                Process proc;
+                // Get processes by name
+                try
+                {
+                    Process[] processes = Process.GetProcessesByName(processName);
+                    if (processes.Length > 1)
+                        if (!silent) Console.WriteLine("Found more than one process by given name! Injecting to the first!");
+                    else if (processes.Length == 0)
+                    {
+                        if (!silent) Console.WriteLine("Processes not found!");
+                        return;
+                    }
+
+                    // Make sure we don't touch SYSTEM processe
+                    if (processes[0].ProcessName == "System")
+                    {
+                        if (!silent) Console.WriteLine("Injecting to process SYSTEM is disallowed");
+                        return;
+                    }
+
+                    proc = processes[0];
+                    if (!silent) Console.WriteLine("Inject target is: {0}", proc.ProcessName);
+                }
+                catch (ArgumentException e)
+                {
+                    if (!silent) Console.WriteLine("Error: " + e.Message);
+                    return;
+                }
+
+                // Open handle to the target process
+                IntPtr ProcHandle = OpenProcess(
+                    ProcessAccessFlags.All,
+                    false,
+                    proc.Id);
+                if (ProcHandle == null)
+                {
+                    if (!silent) Console.WriteLine("Could not obtain handle of process!");
+                    return;
+                }
+
+                // Allocate DLL space
+                IntPtr DllSpace = VirtualAllocEx(
+                    ProcHandle,
+                    IntPtr.Zero,
+                    Size,
+                    AllocationType.Reserve | AllocationType.Commit,
+                    MemoryProtection.ExecuteReadWrite);
+
+                if (DllSpace == null)
+                {
+                    if (!silent) Console.WriteLine("DLL space allocation failed!");
+                    return;
+                }
+
+                // Write DLL content to VAS of target process
+                byte[] bytes = Encoding.ASCII.GetBytes(DllPath);
+                bool DllWrite = WriteProcessMemory(
+                    ProcHandle,
+                    DllSpace,
+                    bytes,
+                    (int)bytes.Length,
+                    out var bytesread
+                    );
+
+                if (DllWrite == false)
+                {
+                    if (!silent) Console.WriteLine("Cannot write DLL to executeable!");
+                    return;
+                }
+
+                // Get handle to Kernel32.dll and get address for LoadLibraryA
+                IntPtr Kernel32Handle = GetModuleHandle("Kernel32.dll");
+                IntPtr LoadLibraryAAddress = GetProcAddress(Kernel32Handle, "LoadLibraryA");
+
+                if (LoadLibraryAAddress == null)
+                {
+                    if (!silent) Console.WriteLine("Obtaining an addess to LoadLibraryA function has failed.");
+                    return;
+                }
+
+                // Create remote thread in the target process
+                IntPtr RemoteThreadHandle = CreateRemoteThread(
+                    ProcHandle,
+                    IntPtr.Zero,
+                    0,
+                    LoadLibraryAAddress,
+                    DllSpace,
+                    0,
+                    IntPtr.Zero
+                    );
+
+                if (RemoteThreadHandle == null)
+                {
+                    if (!silent) Console.WriteLine("Obtaining a handle to remote thread in target process failed.");
+                    return;
+                }
+
+                // Deallocate memory assigned to DLL
+                bool FreeDllSpace = VirtualFreeEx(
+                    ProcHandle,
+                    DllSpace,
+                    0,
+                    AllocationType.Release);
+                if (FreeDllSpace == false)
+                {
+                    if (!silent) Console.WriteLine("Failed to release DLL memory in target process.");
+                    return;
+                }
+                else
+                {
+                    if (!silent) Console.WriteLine("DLL released");
+                }
+
+                // Close remote thread handle
+                CloseHandle(RemoteThreadHandle);
+
+                // Close target process handle
+                CloseHandle(ProcHandle);
+            }
+        }
+
         static void Main(string[] args)
         {
             // Check arguments
             if (args.Length < 2)
             {
-                Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine("Usage: DllInjection.exe <target process id> <path to dll>");
-                Console.ForegroundColor = ConsoleColor.White;
+                Console.WriteLine("Usage: DllInjection.exe <target process name> <path to dll>");
                 System.Environment.Exit(1);
+                return;
             }
 
-            int ProcId = int.Parse(args[0]);
-            string DllPath = args[1];
-            IntPtr Size = (IntPtr)DllPath.Length;
-
-            // Make sure file exist
-            if (File.Exists(DllPath))
-            {
-            }
-            else
-            {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("[!] File {0} does not exist. Please check file path.", DllPath);
-                Console.ForegroundColor = ConsoleColor.White;
-                System.Environment.Exit(1);
-            }
-
-            // Make sure we don't touch SYSTEM 0 and/or 4 processes
-            if ((ProcId == 4) || (ProcId == 0))
-            {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("[!] SYSTEM process id {0} not allowed.", ProcId);
-                Console.ForegroundColor = ConsoleColor.White;
-                System.Environment.Exit(1);
-            }
-            else
-            {
-                // Get process by id
-                try
-                {
-                    Process localById = Process.GetProcessById(ProcId);
-                    string ProcName = localById.ProcessName;
-                    Console.ForegroundColor = ConsoleColor.Green;
-                    Console.WriteLine("[+] Process name '{0}' found.", ProcName);
-                    Console.ForegroundColor = ConsoleColor.White;
-                }
-                catch (ArgumentException e)
-                {
-                    Console.ForegroundColor = ConsoleColor.Red;
-                    Console.WriteLine("[!] Error: {0}", e.Message);
-                    Console.ForegroundColor = ConsoleColor.White;
-                    System.Environment.Exit(1);
-                }
-            }
-
-            // Open handle to the target process
-            IntPtr ProcHandle = OpenProcess(
-                ProcessAccessFlags.All,
-                false,
-                ProcId);
-            if (ProcHandle == null)
-            {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("[!] Handle to target process could not be obtained!");
-                Console.ForegroundColor = ConsoleColor.White;
-                System.Environment.Exit(1);
-            }
-            else
-            {
-                Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine("[+] Handle (0x" + ProcHandle + ") to target process has been be obtained.");
-                Console.ForegroundColor = ConsoleColor.White;
-            }
-
-            // Allocate DLL space
-            IntPtr DllSpace = VirtualAllocEx(
-                ProcHandle,
-                IntPtr.Zero,
-                Size,
-                AllocationType.Reserve | AllocationType.Commit, 
-                MemoryProtection.ExecuteReadWrite);
-
-            if (DllSpace == null)
-            {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("[!] DLL space allocation failed.");
-                Console.ForegroundColor = ConsoleColor.White;
-                System.Environment.Exit(1);
-            }
-            else
-            {
-                Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine("[+] DLL space (0x" + DllSpace + ") allocation is successful.");
-                Console.ForegroundColor = ConsoleColor.White;
-            }
-
-            // Write DLL content to VAS of target process
-            byte[] bytes = Encoding.ASCII.GetBytes(DllPath);
-            bool DllWrite = WriteProcessMemory(
-                ProcHandle,
-                DllSpace,
-                bytes,
-                (int)bytes.Length,
-                out var bytesread
-                );
-
-            if (DllWrite == false)
-            {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("[!] Writing DLL content to target process failed.");
-                Console.ForegroundColor = ConsoleColor.White;
-                System.Environment.Exit(1);
-            }
-            else
-            {
-                Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine("[+] Writing DLL content to target process is successful.");
-                Console.ForegroundColor = ConsoleColor.White;
-            }
-
-            // Get handle to Kernel32.dll and get address for LoadLibraryA
-            IntPtr Kernel32Handle = GetModuleHandle("Kernel32.dll");
-            IntPtr LoadLibraryAAddress = GetProcAddress(Kernel32Handle, "LoadLibraryA");
-
-            if (LoadLibraryAAddress == null)
-            {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("[!] Obtaining an addess to LoadLibraryA function has failed.");
-                Console.ForegroundColor = ConsoleColor.White;
-                System.Environment.Exit(1);
-            }
-            else
-            {
-                Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine("[+] LoadLibraryA function address (0x" + LoadLibraryAAddress + ") has been obtained.");
-                Console.ForegroundColor = ConsoleColor.White;
-            }
-
-            // Create remote thread in the target process
-            IntPtr RemoteThreadHandle = CreateRemoteThread(
-                ProcHandle,
-                IntPtr.Zero,
-                0,
-                LoadLibraryAAddress,
-                DllSpace,
-                0,
-                IntPtr.Zero
-                );
-
-            if (RemoteThreadHandle == null)
-            {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("[!] Obtaining a handle to remote thread in target process failed.");
-                Console.ForegroundColor = ConsoleColor.White;
-                System.Environment.Exit(1);
-            }
-            else
-            {
-                Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine("[+] Obtaining a handle to remote thread (0x" + RemoteThreadHandle + ") in target process is successful.");
-                Console.ForegroundColor = ConsoleColor.White;
-            }
-
-            // Deallocate memory assigned to DLL
-            bool FreeDllSpace = VirtualFreeEx(
-                ProcHandle,
-                DllSpace,
-                0,
-                AllocationType.Release);
-            if (FreeDllSpace == false)
-            {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("[!] Failed to release DLL memory in target process.");
-                Console.ForegroundColor = ConsoleColor.White;
-                System.Environment.Exit(1);
-            }
-            else
-            {
-                Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine("[+] Successfully released DLL memory in target process.");
-                Console.ForegroundColor = ConsoleColor.White;
-            }
-
-            // Close remote thread handle
-            CloseHandle(RemoteThreadHandle);
-
-            // Close target process handle
-            CloseHandle(ProcHandle);
+            inject(args[0], args[1], false);
         }
     }
 }
