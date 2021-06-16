@@ -29,16 +29,6 @@ namespace DllInjection
             Synchronize = 0x00100000
         }
 
-        [DllImport("kernel32.dll", SetLastError = true)]
-        public static extern IntPtr OpenProcess(
-        ProcessAccessFlags processAccess,
-        bool bInheritHandle,
-        int processId);
-        public static IntPtr OpenProcess(Process proc, ProcessAccessFlags flags)
-        {
-            return OpenProcess(flags, false, proc.Id);
-        }
-
         // VirtualAllocEx signture https://www.pinvoke.net/default.aspx/kernel32.virtualallocex
         [Flags]
         public enum AllocationType
@@ -53,11 +43,6 @@ namespace DllInjection
             WriteWatch = 0x200000,
             LargePages = 0x20000000
         }
-
-        // VirtualFreeEx signture  https://www.pinvoke.net/default.aspx/kernel32.virtualfreeex
-        [DllImport("kernel32.dll", SetLastError = true, ExactSpelling = true)]
-        static extern bool VirtualFreeEx(IntPtr hProcess, IntPtr lpAddress,
-        int dwSize, AllocationType dwFreeType);
 
         [Flags]
         public enum MemoryProtection
@@ -75,22 +60,23 @@ namespace DllInjection
             WriteCombineModifierflag = 0x400
         }
 
+        [DllImport("kernel32.dll", SetLastError = true)]
+        public static extern IntPtr OpenProcess(ProcessAccessFlags processAccess, bool bInheritHandle, int processId);
+        public static IntPtr OpenProcess(Process proc, ProcessAccessFlags flags)
+        {
+            return OpenProcess(flags, false, proc.Id);
+        }
+
+        // VirtualFreeEx signture  https://www.pinvoke.net/default.aspx/kernel32.virtualfreeex
         [DllImport("kernel32.dll", SetLastError = true, ExactSpelling = true)]
-        static extern IntPtr VirtualAllocEx(
-            IntPtr hProcess,
-            IntPtr lpAddress,
-            IntPtr dwSize,
-            AllocationType flAllocationType,
-            MemoryProtection flProtect);
+        static extern bool VirtualFreeEx(IntPtr hProcess, IntPtr lpAddress, int dwSize, AllocationType dwFreeType);
+
+        [DllImport("kernel32.dll", SetLastError = true, ExactSpelling = true)]
+        static extern IntPtr VirtualAllocEx(IntPtr hProcess, IntPtr lpAddress, IntPtr dwSize, AllocationType flAllocationType, MemoryProtection flProtect);
 
         // WriteProcessMemory signture https://www.pinvoke.net/default.aspx/kernel32/WriteProcessMemory.html
         [DllImport("kernel32.dll", SetLastError = true)]
-        public static extern bool WriteProcessMemory(
-        IntPtr hProcess,
-        IntPtr lpBaseAddress,
-        [MarshalAs(UnmanagedType.AsAny)] object lpBuffer,
-        int dwSize,
-        out IntPtr lpNumberOfBytesWritten);
+        public static extern bool WriteProcessMemory(IntPtr hProcess, IntPtr lpBaseAddress, [MarshalAs(UnmanagedType.AsAny)] object lpBuffer, int dwSize, out IntPtr lpNumberOfBytesWritten);
 
         // GetProcAddress signture https://www.pinvoke.net/default.aspx/kernel32.getprocaddress
         [DllImport("kernel32", CharSet = CharSet.Ansi, ExactSpelling = true, SetLastError = true)]
@@ -102,14 +88,7 @@ namespace DllInjection
 
         // CreateRemoteThread signture https://www.pinvoke.net/default.aspx/kernel32.createremotethread
         [DllImport("kernel32.dll")]
-        static extern IntPtr CreateRemoteThread(
-        IntPtr hProcess,
-        IntPtr lpThreadAttributes,
-        uint dwStackSize,
-        IntPtr lpStartAddress,
-        IntPtr lpParameter,
-        uint dwCreationFlags,
-        IntPtr lpThreadId);
+        static extern IntPtr CreateRemoteThread(IntPtr hProcess, IntPtr lpThreadAttributes, uint dwStackSize, IntPtr lpStartAddress, IntPtr lpParameter, uint dwCreationFlags, IntPtr lpThreadId);
 
         // CloseHandle signture https://www.pinvoke.net/default.aspx/kernel32.closehandle
         [DllImport("kernel32.dll", SetLastError = true)]
@@ -118,7 +97,7 @@ namespace DllInjection
         [return: MarshalAs(UnmanagedType.Bool)]
         static extern bool CloseHandle(IntPtr hObject);
 
-        public static void inject(String processName, String DllPath, bool silent)
+        public static void inject(string processName, string DllPath, bool silent)
         {
             IntPtr Size = (IntPtr) DllPath.Length;
 
@@ -135,13 +114,13 @@ namespace DllInjection
                 try
                 {
                     Process[] processes = Process.GetProcessesByName(processName);
-                    if (processes.Length > 1)
-                        if (!silent) Console.WriteLine("Found more than one process by given name! Injecting to the first!");
-                    else if (processes.Length == 0)
+                    if (processes == null || processes.Length <= 0)
                     {
                         if (!silent) Console.WriteLine("Processes not found!");
                         return;
                     }
+                    else if (processes.Length > 1)
+                        if (!silent) Console.WriteLine("Found more than one process by given name! Injecting to the first!");
 
                     // Make sure we don't touch SYSTEM processe
                     if (processes[0].ProcessName == "System")
@@ -153,7 +132,7 @@ namespace DllInjection
                     proc = processes[0];
                     if (!silent) Console.WriteLine("Inject target is: {0}", proc.ProcessName);
                 }
-                catch (ArgumentException e)
+                catch (Exception e)
                 {
                     if (!silent) Console.WriteLine("Error: " + e.Message);
                     return;
@@ -190,7 +169,7 @@ namespace DllInjection
                     ProcHandle,
                     DllSpace,
                     bytes,
-                    (int)bytes.Length,
+                    bytes.Length,
                     out var bytesread
                     );
 
