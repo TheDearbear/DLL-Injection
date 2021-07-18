@@ -3,7 +3,7 @@ C# program that takes process name and path to DLL payload to perform DLL inject
 
 Make sure if you using launcher you have file 'DllInjection.dll' in same directory with launcher executeable!
 
-Usage (exe): InjectorLauncher.exe <Process name without .exe> <Path to DLL>  
+Usage (exe): InjectorLauncher.exe <Process name without .exe> \<Path to DLL>  
 Example (exe): InjectorLauncher.exe csgo .\super_mega_cheats_for_csgo.dll
 
 Usage (DLL):  
