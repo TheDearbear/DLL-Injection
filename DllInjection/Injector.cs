@@ -97,137 +97,129 @@ namespace DllInjection
         [return: MarshalAs(UnmanagedType.Bool)]
         static extern bool CloseHandle(IntPtr hObject);
 
-        public static void inject(string processName, string DllPath, bool silent)
+        public static void Inject(int process, string dllPath, bool silent)
+            => Inject(Process.GetProcessById(process), dllPath, silent);
+
+        public static void Inject(string process, string dllPath, bool silent)
         {
-            IntPtr Size = (IntPtr) DllPath.Length;
+            Process[] procs = Process.GetProcessesByName(process);
+            Inject(procs.Length == 0 ? null : procs[0], dllPath, silent);
+        }
+
+        public static void Inject(Process process, string dllPath, bool silent)
+        {
+            dllPath = Path.GetFullPath(dllPath);
+            IntPtr Size = (IntPtr) dllPath.Length;
 
             // Make sure file exist
-            if (!File.Exists(DllPath))
+            if (!File.Exists(dllPath))
             {
                 if (!silent) Console.WriteLine("Cannot find dll at specified path");
                 return;
             }
-            else
+
+            // Check process
+            if (process is null)
             {
-                Process proc;
-                // Get processes by name
-                try
-                {
-                    Process[] processes = Process.GetProcessesByName(processName);
-                    if (processes == null || processes.Length <= 0)
-                    {
-                        if (!silent) Console.WriteLine("Processes not found!");
-                        return;
-                    }
-                    else if (processes.Length > 1)
-                        if (!silent) Console.WriteLine("Found more than one process by given name! Injecting to the first!");
-
-                    // Make sure we don't touch SYSTEM processe
-                    if (processes[0].ProcessName == "System")
-                    {
-                        if (!silent) Console.WriteLine("Injecting to process SYSTEM is disallowed");
-                        return;
-                    }
-
-                    proc = processes[0];
-                    if (!silent) Console.WriteLine("Inject target is: {0}", proc.ProcessName);
-                }
-                catch (Exception e)
-                {
-                    if (!silent) Console.WriteLine("Error: " + e.Message);
-                    return;
-                }
-
-                // Open handle to the target process
-                IntPtr ProcHandle = OpenProcess(
-                    ProcessAccessFlags.All,
-                    false,
-                    proc.Id);
-                if (ProcHandle == null)
-                {
-                    if (!silent) Console.WriteLine("Could not obtain handle of process!");
-                    return;
-                }
-
-                // Allocate DLL space
-                IntPtr DllSpace = VirtualAllocEx(
-                    ProcHandle,
-                    IntPtr.Zero,
-                    Size,
-                    AllocationType.Reserve | AllocationType.Commit,
-                    MemoryProtection.ExecuteReadWrite);
-
-                if (DllSpace == null)
-                {
-                    if (!silent) Console.WriteLine("DLL space allocation failed!");
-                    return;
-                }
-
-                // Write DLL content to VAS of target process
-                byte[] bytes = Encoding.ASCII.GetBytes(DllPath);
-                bool DllWrite = WriteProcessMemory(
-                    ProcHandle,
-                    DllSpace,
-                    bytes,
-                    bytes.Length,
-                    out var bytesread
-                    );
-
-                if (DllWrite == false)
-                {
-                    if (!silent) Console.WriteLine("Cannot write DLL to executeable!");
-                    return;
-                }
-
-                // Get handle to Kernel32.dll and get address for LoadLibraryA
-                IntPtr Kernel32Handle = GetModuleHandle("Kernel32.dll");
-                IntPtr LoadLibraryAAddress = GetProcAddress(Kernel32Handle, "LoadLibraryA");
-
-                if (LoadLibraryAAddress == null)
-                {
-                    if (!silent) Console.WriteLine("Obtaining an addess to LoadLibraryA function has failed.");
-                    return;
-                }
-
-                // Create remote thread in the target process
-                IntPtr RemoteThreadHandle = CreateRemoteThread(
-                    ProcHandle,
-                    IntPtr.Zero,
-                    0,
-                    LoadLibraryAAddress,
-                    DllSpace,
-                    0,
-                    IntPtr.Zero
-                    );
-
-                if (RemoteThreadHandle == null)
-                {
-                    if (!silent) Console.WriteLine("Obtaining a handle to remote thread in target process failed.");
-                    return;
-                }
-
-                // Deallocate memory assigned to DLL
-                bool FreeDllSpace = VirtualFreeEx(
-                    ProcHandle,
-                    DllSpace,
-                    0,
-                    AllocationType.Release);
-                if (FreeDllSpace == false)
-                {
-                    if (!silent) Console.WriteLine("Failed to release DLL memory in target process.");
-                    return;
-                }
-                else
-                {
-                    if (!silent) Console.WriteLine("DLL released");
-                }
-
-                // Close remote thread handle
-                CloseHandle(RemoteThreadHandle);
-
-                // Close target process handle
-                CloseHandle(ProcHandle);
+                if (!silent) Console.WriteLine("Process not found!");
+                return;
             }
+
+            // Make sure we don't touch SYSTEM processe
+            if (process.ProcessName.ToLower() == "system")
+            {
+                if (!silent) Console.WriteLine("Injecting to process SYSTEM is disallowed");
+                return;
+            }
+
+            if (!silent) Console.WriteLine("Inject target is: {0}", process.ProcessName);
+
+            // Open handle to the target process
+            IntPtr procHandle = OpenProcess(
+                ProcessAccessFlags.All,
+                false,
+                process.Id);
+            if (procHandle == null)
+            {
+                if (!silent) Console.WriteLine("Could not obtain handle of process!");
+                return;
+            }
+
+            // Allocate DLL space
+            IntPtr dllSpace = VirtualAllocEx(
+                procHandle,
+                IntPtr.Zero,
+                Size,
+                AllocationType.Reserve | AllocationType.Commit,
+                MemoryProtection.ExecuteReadWrite);
+
+            if (dllSpace == null)
+            {
+                if (!silent) Console.WriteLine("DLL space allocation failed!");
+                return;
+            }
+
+            // Write DLL content to VAS of target process
+            byte[] bytes = Encoding.ASCII.GetBytes(dllPath);
+            bool dllWrite = WriteProcessMemory(
+                procHandle,
+                dllSpace,
+                bytes,
+                bytes.Length,
+                out var bytesread
+                );
+
+            if (!dllWrite)
+            {
+                if (!silent) Console.WriteLine("Cannot write DLL to executeable!");
+                return;
+            }
+
+            // Get handle to Kernel32.dll and get address for LoadLibraryA
+            IntPtr kernel32Handle = GetModuleHandle("Kernel32.dll");
+            IntPtr loadLibraryAAddress = GetProcAddress(kernel32Handle, "LoadLibraryA");
+
+            if (loadLibraryAAddress == null)
+            {
+                if (!silent) Console.WriteLine("Obtaining an addess to LoadLibraryA function has failed.");
+                return;
+            }
+
+            // Create remote thread in the target process
+            IntPtr remoteThreadHandle = CreateRemoteThread(
+                procHandle,
+                IntPtr.Zero,
+                0,
+                loadLibraryAAddress,
+                dllSpace,
+                0,
+                IntPtr.Zero
+                );
+
+            if (remoteThreadHandle == null)
+            {
+                if (!silent) Console.WriteLine("Obtaining a handle to remote thread in target process failed.");
+                return;
+            }
+
+            // Deallocate memory assigned to DLL
+            bool freeDllSpace = VirtualFreeEx(
+                procHandle,
+                dllSpace,
+                0,
+                AllocationType.Release);
+            if (!freeDllSpace)
+            {
+                if (!silent) Console.WriteLine("Failed to release DLL memory in target process.");
+                return;
+            }
+            if (!silent) Console.WriteLine("DLL released");
+
+            // Close remote thread handle
+            CloseHandle(remoteThreadHandle);
+
+            // Close target process handle
+            CloseHandle(procHandle);
         }
     }
 }

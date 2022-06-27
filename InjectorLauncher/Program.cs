@@ -10,10 +10,19 @@ namespace InjectorLauncher
             // Check arguments
             if (args.Length < 2)
             {
-                Console.WriteLine("Usage: InjectorLauncher.exe <target process name> <path to dll>");
+                Console.WriteLine("Usage: InjectorLauncher.exe <target process name | target process id> <path to dll>");
                 return;
             }
-            Injector.inject(args[0], args[1], false);
+
+            try
+            {
+                Injector.Inject(int.Parse(args[0]), args[1], false);
+            }
+            catch (Exception)
+            {
+                Injector.Inject(args[0], args[1], false);
+            }
+
         }
     }
 }
